@@ -12,3 +12,5 @@ wheels/
 
 .env.local
 .env.*.local
+task-definition.json
+ecs-tasks-trust-policy.json
