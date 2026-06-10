@@ -6,9 +6,16 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi[standard]>=0.136.3",
+    "google-genai>=2.8.0",
+    "google-generativeai>=0.8.6",
+    "grok>=6.2",
+    "groq>=1.4.0",
     "mysqlclient>=2.2.8",
+    "openai>=2.40.0",
     "praw>=7.8.1",
+    "pymysql>=1.2.0",
     "ratemyprofessors-client>=3.0.0",
     "requests>=2.34.2",
     "sqlalchemy>=2.0.50",
+    "tenacity>=9.1.4",
 ]

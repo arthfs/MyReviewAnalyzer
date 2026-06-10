@@ -4,13 +4,15 @@ from sqlalchemy import Integer, JSON, create_engine, select, update, insert
 from sqlalchemy.orm import sessionmaker, DeclarativeBase, mapped_column, Mapped
 from typing import Any, Dict
 from dotenv import load_dotenv
+from sqlalchemy import func
 import os
+
 
 load_dotenv()
 
 
-engine = create_engine(f"mysql+mysqldb://{os.getenv('DB_username')}:{os.getenv('DB_password')}@{os.getenv('DB_host')}/{os.getenv('DB_database')}")
-
+#engine = create_engine(f"mysql+pymysql://{os.getenv('DB_username')}:{os.getenv('DB_password')}@{os.getenv('DB_host')}/{os.getenv('DB_database')}")
+engine =  create_engine(os.getenv('DATABASE_URL'))
 
 class Base(DeclarativeBase):
     pass
@@ -29,12 +31,9 @@ class Rmp(Base):
     id: Mapped['int'] = mapped_column(primary_key = True)
     data: Mapped[ Dict[str, Any]] = mapped_column(JSON)
 
-#Base.metadata.create_all(engine)
-
-#newprof = Professor(data = {"first_name":'paul',"last_name":'puio'})
-#session.add(newprof)
 
 def refine(prof_data):
+    
     refined_data = {
     'prof_id' : prof_data['id'],
     'name' : prof_data['name'],
@@ -50,29 +49,32 @@ def refine(prof_data):
     return refined_data
 
 def get_prof(first_name, last_name):
-   
+
     Session = sessionmaker(bind = engine)
     session = Session()
 
     
     client = RMPClient()
-    stmt = select(Professor).where(Professor.data['first_name'].__eq__(first_name) and Professor.data['last_name'].__eq__(last_name) )
+    stmt = select(Professor).where( func.lower( Professor.data['name'].as_string()).__eq__(f'{first_name} {last_name}'.lower()) 
+                                   | func.lower( Professor.data['name'].as_string()).__eq__(f'{last_name} {first_name}'.lower()) )
     data = session.scalars(stmt).all()
     
+
     rmp_professor = client.search_professors(f'{first_name} {last_name}', school_id = 825).professors
     
     if rmp_professor == []:
         #not found on RMP
-        print('not found')
+       
         session.close()
         return {}
     
     if len(data) == 0:
         #not in database
-        print('here')
+        print('not in database')
         professor = None
+
         for prof in rmp_professor:
-            print(prof)
+            
             fname, lname = prof.name.split()
             fname = fname.lower()
             lname = lname.lower()
@@ -87,6 +89,7 @@ def get_prof(first_name, last_name):
             return "something went wrong"
         
         prof_data = professor.model_dump()
+       
         stored_data = refine(prof_data)
         stored_data['reviews'] = get_rmp_reviews(stored_data['prof_id'])
         stmt = insert(Professor).values(data = stored_data)
@@ -97,15 +100,19 @@ def get_prof(first_name, last_name):
 
     
     else:
-        remote_data = refine(rmp_professor[0])
+        remote_data = refine(rmp_professor[0].model_dump())
         remote_data['reviews'] = get_rmp_reviews(remote_data['prof_id'])
+        #print('is in the database')
         if remote_data == data[0].data:
             #there were no changes in this prof's data
+            #print('there were no updates')
             session.close()
-            return data[0]
+            #print(data[0].data)
+            return data[0].data
         
+        #print(remote_data)
         update_prof(remote_data.id, remote_data)
-
+        #print(remote_data)
         session.close()
         return remote_data
 
@@ -128,27 +135,10 @@ def get_rmp_reviews(prof_id):
     remote_result = [ object.model_dump_json() for object in iterator]
     client.close()
     return remote_result
-  
 
-#print(get_rmp_reviews('182646')[:5])
-'''
-    Column('first_name', String(50)),
-    Column('lname', String(50)),
-    Column('dept' , String(100)), 
-    Column('school', String(100)),
-    Column('rating' , Float(1)), 
-    Column('difficulty', Float(1)), 
-    Column('num_rating' , Integer),
-    Column('take_again' , Float(2)), 
-    Column('id', String(10), primary_key = True) ,
+Base.metadata.create_all(bind = engine)
+#get_prof('lily','chang')
+#client = RMPClient()
+#rmp_professor = client.search_professors(f'{'lily'} {'chang'}', school_id = 825).professors[0]
+#print(rmp_professor.model_dump()['name'])
 
-'''
-
-'''
-rmp = Table(
-    'rmp',
-    metadata_obj,
-    Column('prof_id', ForeignKey("professor.id", ondelete = 'cascade', onupdate = 'cascade')),
-    Column('review', JSON)
-    )
-'''
