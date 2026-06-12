@@ -1,0 +1,5 @@
+# Treat backend as vendored (exclude from language stats)
+my-fastapi-project/** linguist-vendored=true
+
+# Explicitly mark frontend as main code (include in stats)
+review_analyzer/** linguist-vendored=false
